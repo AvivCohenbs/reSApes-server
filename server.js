@@ -23,6 +23,8 @@ const app = express();
 
 app.use(express.json());
 
+// this is my new change
+
 // app.use(express.static("client/build"));
 
 app.get("/recipes", async (req, res) => {
@@ -61,10 +63,35 @@ app.get("/recipes/:id", async (req, res) => {
 });
 
 app.post("/recipes", async (req, res) => {
-  const { title, ingredients } = req.body;
-  const recipe = new Recipe({ title, ingredients });
+  const {
+    title,
+    time,
+    difficulty,
+    description,
+    image,
+    instructions,
+    ingredients,
+  } = req.body;
+  const recipe = new Recipe({
+    title,
+    time,
+    difficulty,
+    description,
+    image,
+    instructions,
+    ingredients,
+  });
   await recipe.save();
   res.send(recipe);
+});
+
+app.post("/ingredients", async (req, res) => {
+  const { name } = req.body;
+  const ingredient = new Ingredient({
+    name,
+  });
+  await ingredient.save();
+  res.send(ingredient);
 });
 
 app.delete("/recipes/:id", async (req, res) => {
@@ -77,11 +104,28 @@ app.delete("/recipes/:id", async (req, res) => {
   }
 });
 
+app.delete("/ingredients/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const ingredient = await Ingredient.findByIdAndDelete(id);
+    res.send({ msg: "Success" });
+  } catch (e) {
+    res.send({ msg: "Failed" });
+  }
+});
+
 app.put("/recipes/:id", async (req, res) => {
   const { id } = req.params;
   const body = req.body;
   const recipe = await Recipe.findOneAndUpdate(id, body);
   res.send(recipe);
+});
+
+app.put("/ingredients/:id", async (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+  const ingredient = await Ingredient.findOneAndUpdate(id, body);
+  res.send(ingredient);
 });
 
 app.get("/recipes/:id", async (req, res) => {
