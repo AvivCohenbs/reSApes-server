@@ -23,9 +23,33 @@ const app = express();
 
 app.use(express.json());
 
-// this is my new change
-
 // app.use(express.static("client/build"));
+
+// app.get("/recipes", async (req, res) => {
+//   let { term, allergies } = req.query;
+//   try {
+//     allergies = allergies.split(",").filter((a) => a !== "undefined");
+//     //const allergiesId = await Ingredient.find({ name: allergies });
+//     let recipes = await Recipe.find().populate("ingredients");
+
+//     if (allergies) {
+//       recipes = recipes.filter((recipe) =>
+//         recipe.ingredients.every((ingredient) =>
+//           allergies.every((allergy) => allergy !== ingredient.name)
+//         )
+//       );
+//     // }
+//     if (term) {
+//       recipes = recipes.filter((recipe) =>
+//         recipe.title.toLowerCase().includes(term.toLowerCase())
+//       );
+//     }
+//     //console.log(recipes);
+//     res.send(recipes);
+//   } catch (e) {
+//     throw e;
+//   }
+// });
 
 app.get("/recipes", async (req, res) => {
   const { term } = req.query;
@@ -37,7 +61,6 @@ app.get("/recipes", async (req, res) => {
         recipe.title.toLowerCase().includes(term.toLowerCase())
       );
     }
-    console.log(recipes);
     res.send(recipes);
   } catch (e) {
     throw e;
@@ -117,14 +140,15 @@ app.delete("/ingredients/:id", async (req, res) => {
 app.put("/recipes/:id", async (req, res) => {
   const { id } = req.params;
   const body = req.body;
-  const recipe = await Recipe.findOneAndUpdate(id, body);
+  const recipe = await Recipe.findOneAndUpdate(id, body, { new: true });
   res.send(recipe);
 });
 
 app.put("/ingredients/:id", async (req, res) => {
   const { id } = req.params;
   const body = req.body;
-  const ingredient = await Ingredient.findOneAndUpdate(id, body);
+  const ingredient = await Ingredient.findOneAndUpdate(id, body, { new: true });
+  console.log(ingredient);
   res.send(ingredient);
 });
 
