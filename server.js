@@ -7,6 +7,7 @@ dotenv.config();
 
 const Ingredient = mongoose.model("Ingredient", {
   name: String,
+  allergie: String,
 });
 
 const Recipe = mongoose.model("Recipe", {
@@ -24,32 +25,6 @@ const app = express();
 app.use(express.json());
 
 // app.use(express.static("client/build"));
-
-// app.get("/recipes", async (req, res) => {
-//   let { term, allergies } = req.query;
-//   try {
-//     allergies = allergies.split(",").filter((a) => a !== "undefined");
-//     //const allergiesId = await Ingredient.find({ name: allergies });
-//     let recipes = await Recipe.find().populate("ingredients");
-
-//     if (allergies) {
-//       recipes = recipes.filter((recipe) =>
-//         recipe.ingredients.every((ingredient) =>
-//           allergies.every((allergy) => allergy !== ingredient.name)
-//         )
-//       );
-//     // }
-//     if (term) {
-//       recipes = recipes.filter((recipe) =>
-//         recipe.title.toLowerCase().includes(term.toLowerCase())
-//       );
-//     }
-//     //console.log(recipes);
-//     res.send(recipes);
-//   } catch (e) {
-//     throw e;
-//   }
-// });
 
 app.get("/recipes", async (req, res) => {
   const { term } = req.query;
@@ -109,9 +84,10 @@ app.post("/recipes", async (req, res) => {
 });
 
 app.post("/ingredients", async (req, res) => {
-  const { name } = req.body;
+  const { name, allergie } = req.body;
   const ingredient = new Ingredient({
     name,
+    allergie,
   });
   await ingredient.save();
   res.send(ingredient);
@@ -140,15 +116,18 @@ app.delete("/ingredients/:id", async (req, res) => {
 app.put("/recipes/:id", async (req, res) => {
   const { id } = req.params;
   const body = req.body;
-  const recipe = await Recipe.findOneAndUpdate(id, body, { new: true });
+  const recipe = await Recipe.findByIdAndUpdate(id, body, { new: true });
   res.send(recipe);
 });
 
 app.put("/ingredients/:id", async (req, res) => {
   const { id } = req.params;
+  console.log(id);
   const body = req.body;
-  const ingredient = await Ingredient.findOneAndUpdate(id, body, { new: true });
-  console.log(ingredient);
+  console.log("body", body);
+  const ingredient = await Ingredient.findByIdAndUpdate(id, body, {
+    new: true,
+  });
   res.send(ingredient);
 });
 
@@ -157,7 +136,6 @@ app.get("/recipes/:id", async (req, res) => {
   const recipe = await Recipe.findById(id);
   recipe.ingredients.map((ingredient) => {
     const ing = Ingredient.find((ingr) => ingr.id === ingredient);
-    console.log(ing);
   });
   res.send(recipe);
 });
