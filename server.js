@@ -27,39 +27,49 @@ app.use(express.json());
 // app.use(express.static("client/build"));
 
 app.get("/recipes", async (req, res) => {
-  const { term, allergies } = req.query;
+  const { term, allergies, ingredients } = req.query;
   let allergiesIds = new Set();
+  let ingredientsIds = new Set();
+  let allergiesPromises = [];
+  let ingredientsPromises = [];
   try {
     if (allergies) {
       const allergiesNames = allergies.split(",");
-      console.log("allergies names", allergiesNames);
-      const allergiesPromises = allergiesNames.map(async (allergie) => {
+      allergiesPromises = allergiesNames.map(async (allergie) => {
         const ingredientsFound = await Ingredient.find({ allergie });
         if (ingredientsFound.length) {
           ingredientsFound.forEach((ingr) => {
-            allergiesIds.add(ingr._id.toString());
+            allergiesIds.add(ingr._id);
           });
         }
       });
-      await Promise.all(allergiesPromises);
     }
-    console.log(allergiesIds);
-    // find all the recipes that doesnt have the allergiesIds in the ingredients
-    let recipes = await Recipe.find().populate("ingredients");
+    if (ingredients) {
+      const ingredientsNames = ingredients.split(",");
+      ingredientsPromises = ingredientsNames.map(async (name) => {
+        const recipesFound = await Ingredient.find({ name });
+        if (recipesFound.length) {
+          recipesFound.forEach((ing) => {
+            console.log("ingredient", ing._id);
+            ingredientsIds.add(ing._id);
+          });
+        }
+      });
+    }
+    await Promise.all([...allergiesPromises, ...ingredientsPromises]);
+    allergiesIds = Array.from(allergiesIds);
+    ingredientsIds = Array.from(ingredientsIds);
 
-    if (allergiesIds.size) {
-      console.log("filtering by Ids", allergiesIds);
-      recipes = recipes.filter((recipe) =>
-        recipe.ingredients.every((ingredient) => {
-          console.log(
-            "ingredient id",
-            ingredient._id.toString(),
-            allergiesIds.has(ingredient._id.toString())
-          );
-          return !allergiesIds.has(ingredient._id.toString());
-        })
-      );
+    const ingredientsFilter = {
+      $nin: allergiesIds,
+    };
+
+    if (ingredientsIds.length) {
+      ingredientsFilter["$in"] = ingredientsIds;
     }
+    let recipes = await Recipe.find({
+      ingredients: ingredientsFilter,
+    }).populate("ingredients");
 
     if (term) {
       recipes = recipes.filter((recipe) =>
