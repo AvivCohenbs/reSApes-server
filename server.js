@@ -27,9 +27,39 @@ app.use(express.json());
 // app.use(express.static("client/build"));
 
 app.get("/recipes", async (req, res) => {
-  const { term } = req.query;
+  const { term, allergies } = req.query;
+  let allergiesIds = new Set();
   try {
-    const recipes = await Recipe.find().populate("ingredients");
+    if (allergies) {
+      const allergiesNames = allergies.split(",");
+      console.log("allergies names", allergiesNames);
+      const allergiesPromises = allergiesNames.map(async (allergie) => {
+        const ingredientsFound = await Ingredient.find({ allergie });
+        if (ingredientsFound.length) {
+          ingredientsFound.forEach((ingr) => {
+            allergiesIds.add(ingr._id.toString());
+          });
+        }
+      });
+      await Promise.all(allergiesPromises);
+    }
+    console.log(allergiesIds);
+    // find all the recipes that doesnt have the allergiesIds in the ingredients
+    let recipes = await Recipe.find().populate("ingredients");
+
+    if (allergiesIds.size) {
+      console.log("filtering by Ids", allergiesIds);
+      recipes = recipes.filter((recipe) =>
+        recipe.ingredients.every((ingredient) => {
+          console.log(
+            "ingredient id",
+            ingredient._id.toString(),
+            allergiesIds.has(ingredient._id.toString())
+          );
+          return !allergiesIds.has(ingredient._id.toString());
+        })
+      );
+    }
 
     if (term) {
       recipes = recipes.filter((recipe) =>
