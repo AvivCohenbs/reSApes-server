@@ -50,7 +50,6 @@ app.get("/recipes", async (req, res) => {
         const recipesFound = await Ingredient.find({ name });
         if (recipesFound.length) {
           recipesFound.forEach((ing) => {
-            console.log("ingredient", ing._id);
             ingredientsIds.add(ing._id);
           });
         }
@@ -162,9 +161,7 @@ app.put("/recipes/:id", async (req, res) => {
 
 app.put("/ingredients/:id", async (req, res) => {
   const { id } = req.params;
-  console.log(id);
   const body = req.body;
-  console.log("body", body);
   const ingredient = await Ingredient.findByIdAndUpdate(id, body, {
     new: true,
   });
