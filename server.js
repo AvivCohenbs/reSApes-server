@@ -10,6 +10,16 @@ const Ingredient = mongoose.model("Ingredient", {
   allergie: String,
 });
 
+// const Unit = mongoose.model("Unit", {
+//   name: String,
+// });
+
+// const IngredientQuantity = mongoose.model("IngredientQuantity", {
+//   quantity: Number,
+//   unit: { type: mongoose.Schema.Types.ObjectId, ref: "Unit" },
+//   ingredient: { type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" },
+// });
+
 const Recipe = mongoose.model("Recipe", {
   title: String,
   time: Number,
@@ -18,6 +28,10 @@ const Recipe = mongoose.model("Recipe", {
   image: String,
   instructions: Array,
   ingredients: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" }],
+  // lifeStyle: String,
+  // ingredientsQuantities: [
+  //   { type: mongoose.Schema.Types.ObjectId, ref: "IngredientQuantity" },
+  // ],
 });
 
 const app = express();
@@ -75,6 +89,15 @@ app.get("/recipes", async (req, res) => {
         recipe.title.toLowerCase().includes(term.toLowerCase())
       );
     }
+
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    shuffleArray(recipes);
     res.send(recipes);
   } catch (e) {
     throw e;
