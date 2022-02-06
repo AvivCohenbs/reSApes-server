@@ -11,7 +11,7 @@ const Ingredient = mongoose.model("Ingredient", {
 });
 
 // const Unit = mongoose.model("Unit", {
-//   name: String,
+//   name: String, // KAF, KAPIT, KOS, ML, GR, KILO
 // });
 
 // const IngredientQuantity = mongoose.model("IngredientQuantity", {
@@ -28,7 +28,8 @@ const Recipe = mongoose.model("Recipe", {
   image: String,
   instructions: Array,
   ingredients: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" }],
-  // lifeStyle: String,
+  vegan: Boolean,
+  vegetarian: Boolean,
   // ingredientsQuantities: [
   //   { type: mongoose.Schema.Types.ObjectId, ref: "IngredientQuantity" },
   // ],
@@ -41,11 +42,13 @@ app.use(express.json());
 // app.use(express.static("client/build"));
 
 app.get("/recipes", async (req, res) => {
-  const { term, allergies, ingredients } = req.query;
+  const { term, allergies, ingredients, vegan, vegetarian } = req.query;
+
   let allergiesIds = new Set();
   let ingredientsIds = new Set();
   let allergiesPromises = [];
   let ingredientsPromises = [];
+
   try {
     if (allergies) {
       const allergiesNames = allergies.split(",");
@@ -80,9 +83,20 @@ app.get("/recipes", async (req, res) => {
     if (ingredientsIds.length) {
       ingredientsFilter["$in"] = ingredientsIds;
     }
-    let recipes = await Recipe.find({
+
+    const filter = {
       ingredients: ingredientsFilter,
-    }).populate("ingredients");
+    };
+
+    if (vegetarian) {
+      filter.vegetarian = true;
+    }
+
+    if (vegan) {
+      filter.vegan = true;
+    }
+
+    let recipes = await Recipe.find(filter).populate("ingredients");
 
     if (term) {
       recipes = recipes.filter((recipe) =>
@@ -131,6 +145,8 @@ app.post("/recipes", async (req, res) => {
     image,
     instructions,
     ingredients,
+    vegan,
+    vegetarian,
   } = req.body;
   const recipe = new Recipe({
     title,
@@ -140,6 +156,8 @@ app.post("/recipes", async (req, res) => {
     image,
     instructions,
     ingredients,
+    vegan,
+    vegetarian,
   });
   await recipe.save();
   res.send(recipe);
