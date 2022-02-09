@@ -10,15 +10,15 @@ const Ingredient = mongoose.model("Ingredient", {
   allergie: String,
 });
 
-// const Unit = mongoose.model("Unit", {
-//   name: String, // KAF, KAPIT, KOS, ML, GR, KILO
-// });
+const Unit = mongoose.model("Unit", {
+  name: String,
+});
 
-// const IngredientQuantity = mongoose.model("IngredientQuantity", {
-//   quantity: Number,
-//   unit: { type: mongoose.Schema.Types.ObjectId, ref: "Unit" },
-//   ingredient: { type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" },
-// });
+const IngredientQuantity = mongoose.model("IngredientQuantity", {
+  quantity: Number,
+  unit: { type: mongoose.Schema.Types.ObjectId, ref: "Unit" },
+  ingredient: { type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" },
+});
 
 const Recipe = mongoose.model("Recipe", {
   title: String,
@@ -30,9 +30,9 @@ const Recipe = mongoose.model("Recipe", {
   ingredients: [{ type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" }],
   vegan: Boolean,
   vegetarian: Boolean,
-  // ingredientsQuantities: [
-  //   { type: mongoose.Schema.Types.ObjectId, ref: "IngredientQuantity" },
-  // ],
+  ingredientsQuantities: [
+    { type: mongoose.Schema.Types.ObjectId, ref: "IngredientQuantity" },
+  ],
 });
 
 const app = express();
@@ -42,7 +42,14 @@ app.use(express.json());
 // app.use(express.static("client/build"));
 
 app.get("/recipes", async (req, res) => {
-  const { term, allergies, ingredients, vegan, vegetarian } = req.query;
+  const {
+    term,
+    allergies,
+    ingredients,
+    vegan,
+    vegetarian,
+    ingredientsQuantities,
+  } = req.query;
 
   let allergiesIds = new Set();
   let ingredientsIds = new Set();
@@ -126,6 +133,22 @@ app.get("/ingredients", async (req, res) => {
   }
 });
 
+app.get("/units", async (req, res) => {
+  try {
+    res.send(await Unit.find());
+  } catch (e) {
+    throw e;
+  }
+});
+
+app.get("/ingredientsQuantities", async (req, res) => {
+  try {
+    res.send(await IngredientQuantity.find());
+  } catch (e) {
+    throw e;
+  }
+});
+
 app.get("/recipes/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -147,6 +170,7 @@ app.post("/recipes", async (req, res) => {
     ingredients,
     vegan,
     vegetarian,
+    ingredientsQuantities,
   } = req.body;
   const recipe = new Recipe({
     title,
@@ -158,6 +182,7 @@ app.post("/recipes", async (req, res) => {
     ingredients,
     vegan,
     vegetarian,
+    ingredientsQuantities,
   });
   await recipe.save();
   res.send(recipe);
@@ -171,6 +196,26 @@ app.post("/ingredients", async (req, res) => {
   });
   await ingredient.save();
   res.send(ingredient);
+});
+
+app.post("/units", async (req, res) => {
+  const { name } = req.body;
+  const unit = new Unit({
+    name,
+  });
+  await unit.save();
+  res.send(unit);
+});
+
+app.post("/ingredientsQuantities", async (req, res) => {
+  const { unit, quantity, ingredient } = req.body;
+  const ingredientQuantity = new IngredientQuantity({
+    unit,
+    quantity,
+    ingredient,
+  });
+  await unit.save();
+  res.send(ingredientQuantity);
 });
 
 app.delete("/recipes/:id", async (req, res) => {
@@ -193,6 +238,26 @@ app.delete("/ingredients/:id", async (req, res) => {
   }
 });
 
+app.delete("/units/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const unit = await Unit.findByIdAndDelete(id);
+    res.send({ msg: "Success" });
+  } catch (e) {
+    res.send({ msg: "Failed" });
+  }
+});
+
+app.delete("/ingredientsQuantities/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const ingredientQuantity = await IngredientQuantity.findByIdAndDelete(id);
+    res.send({ msg: "Success" });
+  } catch (e) {
+    res.send({ msg: "Failed" });
+  }
+});
+
 app.put("/recipes/:id", async (req, res) => {
   const { id } = req.params;
   const body = req.body;
@@ -207,6 +272,24 @@ app.put("/ingredients/:id", async (req, res) => {
     new: true,
   });
   res.send(ingredient);
+});
+
+app.put("/units/:id", async (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+  const unit = await Unit.findByIdAndUpdate(id, body, { new: true });
+  res.send(unit);
+});
+
+app.put("/ingredientsQuantities/:id", async (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+  const ingredientQuantity = await IngredientQuantity.findByIdAndUpdate(
+    id,
+    body,
+    { new: true }
+  );
+  res.send(ingredientQuantity);
 });
 
 app.get("/recipes/:id", async (req, res) => {
