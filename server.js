@@ -14,11 +14,15 @@ const Unit = mongoose.model("Unit", {
   name: String,
 });
 
-const IngredientQuantity = mongoose.model("IngredientQuantity", {
-  quantity: Number,
-  unit: { type: mongoose.Schema.Types.ObjectId, ref: "Unit" },
-  ingredient: { type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" },
+const User = mongoose.model("User", {
+  email: String,
+  password: String,
+  // favorites: String, האם צריך להכנס לכאן ?
 });
+
+// const Favorite = mongoose.model("Favorite", {
+//   title: String,
+// });  לוודא כיצד ניתן לקשר לכותרת של המתכון עצמו
 
 const Recipe = mongoose.model("Recipe", {
   title: String,
@@ -31,15 +35,20 @@ const Recipe = mongoose.model("Recipe", {
   vegan: Boolean,
   vegetarian: Boolean,
   ingredientsQuantities: [
-    { type: mongoose.Schema.Types.ObjectId, ref: "IngredientQuantity" },
+    {
+      quantity: Number,
+      unit: { type: mongoose.Schema.Types.ObjectId, ref: "Unit" },
+      ingredient: { type: mongoose.Schema.Types.ObjectId, ref: "Ingredient" },
+    },
   ],
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 });
+
+// const ingredients = recipe.ingredientsQuantities.map(item => item.ingredient)
 
 const app = express();
 
 app.use(express.json());
-
-// app.use(express.static("client/build"));
 
 app.get("/recipes", async (req, res) => {
   const {
@@ -103,7 +112,10 @@ app.get("/recipes", async (req, res) => {
       filter.vegan = true;
     }
 
-    let recipes = await Recipe.find(filter).populate("ingredients");
+    let recipes = await Recipe.find(filter)
+      .populate("ingredients")
+      .populate("ingredientsQuantities.unit")
+      .populate("ingredientsQuantities.ingredient");
 
     if (term) {
       recipes = recipes.filter((recipe) =>
@@ -141,18 +153,29 @@ app.get("/units", async (req, res) => {
   }
 });
 
-app.get("/ingredientsQuantities", async (req, res) => {
+app.get("/users", async (req, res) => {
   try {
-    res.send(await IngredientQuantity.find());
+    res.send(await User.find());
   } catch (e) {
     throw e;
   }
 });
 
+// app.get("/favorites", async (req, res) => {
+//   try {
+//     res.send(await Favorite.find());
+//   } catch (e) {
+//     throw e;
+//   }
+// });
+
 app.get("/recipes/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const recipe = await Recipe.findById(id).populate("ingredients");
+    const recipe = await Recipe.findById(id)
+      .populate("ingredients")
+      .populate("ingredientsQuantities.unit")
+      .populate("ingredientsQuantities.ingredient");
     res.send(recipe);
   } catch (e) {
     throw e;
@@ -207,16 +230,24 @@ app.post("/units", async (req, res) => {
   res.send(unit);
 });
 
-app.post("/ingredientsQuantities", async (req, res) => {
-  const { unit, quantity, ingredient } = req.body;
-  const ingredientQuantity = new IngredientQuantity({
-    unit,
-    quantity,
-    ingredient,
+app.post("/users", async (req, res) => {
+  const { email, password } = req.body;
+  const user = new User({
+    email,
+    password,
   });
-  await unit.save();
-  res.send(ingredientQuantity);
+  await user.save();
+  res.send(user);
 });
+
+// app.post("/favorites", async (req, res) => {
+//   const { title } = req.body;
+//   const favorite = new Favorite({
+//     title,
+//   });
+//   await favorite.save();
+//   res.send(favorite);
+// });
 
 app.delete("/recipes/:id", async (req, res) => {
   const { id } = req.params;
@@ -248,15 +279,25 @@ app.delete("/units/:id", async (req, res) => {
   }
 });
 
-app.delete("/ingredientsQuantities/:id", async (req, res) => {
+app.delete("/users/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const ingredientQuantity = await IngredientQuantity.findByIdAndDelete(id);
+    const user = await User.findByIdAndDelete(id);
     res.send({ msg: "Success" });
   } catch (e) {
     res.send({ msg: "Failed" });
   }
 });
+
+// app.delete("/favorites/:id", async (req, res) => {
+//   const { id } = req.params;
+//   try {
+//     const favorite = await Favorite.findByIdAndDelete(id);
+//     res.send({ msg: "Success" });
+//   } catch (e) {
+//     res.send({ msg: "Failed" });
+//   }
+// });
 
 app.put("/recipes/:id", async (req, res) => {
   const { id } = req.params;
@@ -281,16 +322,19 @@ app.put("/units/:id", async (req, res) => {
   res.send(unit);
 });
 
-app.put("/ingredientsQuantities/:id", async (req, res) => {
+app.put("/users/:id", async (req, res) => {
   const { id } = req.params;
   const body = req.body;
-  const ingredientQuantity = await IngredientQuantity.findByIdAndUpdate(
-    id,
-    body,
-    { new: true }
-  );
-  res.send(ingredientQuantity);
+  const user = await User.findByIdAndUpdate(id, body, { new: true });
+  res.send(user);
 });
+
+// app.put("/favorites/:id", async (req, res) => {
+//   const { id } = req.params;
+//   const body = req.body;
+//   const favorite = await Favorite.findByIdAndUpdate(id, body, { new: true });
+//   res.send(favorite);
+// });
 
 app.get("/recipes/:id", async (req, res) => {
   const { id } = req.params;
@@ -305,6 +349,23 @@ app.get("/initRecipes", async (req, res) => {
   await initRecipes();
   res.send("DONE!");
 });
+
+app.post("/login", async (req, res) => {
+  // email, password
+  // if exists
+  // YES -> res.send({"success": true}) -> on CLIENT: redirect to community, save on cookie ("")
+  const { email, password } = req.body;
+  console.log(email, password);
+  const user = await User.findOne({ email, password });
+  console.log(user);
+  if (user) {
+    res.send({ success: true, user });
+  } else {
+    res.send({ success: false, error: "please try again" });
+  }
+});
+
+// "user" - GET, POST, PUT, DELETE
 
 async function initRecipes() {
   await Recipe.deleteMany();
