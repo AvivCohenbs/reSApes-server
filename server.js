@@ -14,15 +14,16 @@ const Unit = mongoose.model("Unit", {
   name: String,
 });
 
+const Comment = mongoose.model("Comment", {
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  content: String,
+});
+
 const User = mongoose.model("User", {
   email: String,
   password: String,
-  // favorites: String, האם צריך להכנס לכאן ?
+  favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: "Recipe" }],
 });
-
-// const Favorite = mongoose.model("Favorite", {
-//   title: String,
-// });  לוודא כיצד ניתן לקשר לכותרת של המתכון עצמו
 
 const Recipe = mongoose.model("Recipe", {
   title: String,
@@ -42,23 +43,15 @@ const Recipe = mongoose.model("Recipe", {
     },
   ],
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  comments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Comment" }],
 });
-
-// const ingredients = recipe.ingredientsQuantities.map(item => item.ingredient)
 
 const app = express();
 
 app.use(express.json());
 
 app.get("/recipes", async (req, res) => {
-  const {
-    term,
-    allergies,
-    ingredients,
-    vegan,
-    vegetarian,
-    ingredientsQuantities,
-  } = req.query;
+  const { term, allergies, ingredients, vegan, vegetarian } = req.query;
 
   let allergiesIds = new Set();
   let ingredientsIds = new Set();
@@ -117,6 +110,8 @@ app.get("/recipes", async (req, res) => {
       .populate("ingredientsQuantities.unit")
       .populate("ingredientsQuantities.ingredient");
 
+    console.log("recipes", recipes);
+
     if (term) {
       recipes = recipes.filter((recipe) =>
         recipe.title.toLowerCase().includes(term.toLowerCase())
@@ -161,13 +156,13 @@ app.get("/users", async (req, res) => {
   }
 });
 
-// app.get("/favorites", async (req, res) => {
-//   try {
-//     res.send(await Favorite.find());
-//   } catch (e) {
-//     throw e;
-//   }
-// });
+app.get("/comments", async (req, res) => {
+  try {
+    res.send(await Comment.find().populate("user"));
+  } catch (e) {
+    throw e;
+  }
+});
 
 app.get("/recipes/:id", async (req, res) => {
   const { id } = req.params;
@@ -175,7 +170,18 @@ app.get("/recipes/:id", async (req, res) => {
     const recipe = await Recipe.findById(id)
       .populate("ingredients")
       .populate("ingredientsQuantities.unit")
-      .populate("ingredientsQuantities.ingredient");
+      .populate("ingredientsQuantities.ingredient")
+      .populate({
+        path: "comments",
+        populate: {
+          select: "email",
+          path: "user",
+          model: "User",
+        },
+      });
+
+    console.log("recipe", recipe);
+
     res.send(recipe);
   } catch (e) {
     throw e;
@@ -194,6 +200,7 @@ app.post("/recipes", async (req, res) => {
     vegan,
     vegetarian,
     ingredientsQuantities,
+    comments,
   } = req.body;
   const recipe = new Recipe({
     title,
@@ -206,8 +213,10 @@ app.post("/recipes", async (req, res) => {
     vegan,
     vegetarian,
     ingredientsQuantities,
+    comments,
   });
   await recipe.save();
+  console.log(recipe);
   res.send(recipe);
 });
 
@@ -240,14 +249,25 @@ app.post("/users", async (req, res) => {
   res.send(user);
 });
 
-// app.post("/favorites", async (req, res) => {
-//   const { title } = req.body;
-//   const favorite = new Favorite({
-//     title,
-//   });
-//   await favorite.save();
-//   res.send(favorite);
-// });
+app.post("/recipes/:id/comment", async (req, res) => {
+  const { user, content } = req.body;
+
+  const { id } = req.params;
+  const comment = new Comment({ user, content });
+
+  await comment.save();
+  const recipe = await Recipe.findByIdAndUpdate(
+    id,
+    { $addToSet: { comments: comment._id } },
+    { new: true }
+  );
+
+  console.log("recipe", recipe);
+
+  await recipe.save();
+
+  res.send(await comment.populate("user"));
+});
 
 app.delete("/recipes/:id", async (req, res) => {
   const { id } = req.params;
@@ -289,18 +309,19 @@ app.delete("/users/:id", async (req, res) => {
   }
 });
 
-// app.delete("/favorites/:id", async (req, res) => {
-//   const { id } = req.params;
-//   try {
-//     const favorite = await Favorite.findByIdAndDelete(id);
-//     res.send({ msg: "Success" });
-//   } catch (e) {
-//     res.send({ msg: "Failed" });
-//   }
-// });
+app.delete("/recipes/:id/comment/:commentId", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const comment = await Comment.findByIdAndDelete(id);
+    res.send({ msg: "Success" });
+  } catch (e) {
+    res.send({ msg: "Failed" });
+  }
+});
 
 app.put("/recipes/:id", async (req, res) => {
   const { id } = req.params;
+  const { commentContent, userId } = req.body;
   const body = req.body;
   const recipe = await Recipe.findByIdAndUpdate(id, body, { new: true });
   res.send(recipe);
@@ -324,17 +345,17 @@ app.put("/units/:id", async (req, res) => {
 
 app.put("/users/:id", async (req, res) => {
   const { id } = req.params;
-  const body = req.body;
+  const { favoriteId } = req.body;
   const user = await User.findByIdAndUpdate(id, body, { new: true });
   res.send(user);
 });
 
-// app.put("/favorites/:id", async (req, res) => {
-//   const { id } = req.params;
-//   const body = req.body;
-//   const favorite = await Favorite.findByIdAndUpdate(id, body, { new: true });
-//   res.send(favorite);
-// });
+app.put("/comments/:id", async (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+  const comment = await Comment.findByIdAndUpdate(id, body, { new: true });
+  res.send(comment);
+});
 
 app.get("/recipes/:id", async (req, res) => {
   const { id } = req.params;
@@ -351,8 +372,6 @@ app.get("/initRecipes", async (req, res) => {
 });
 
 app.post("/login", async (req, res) => {
-  // email, password
-  // if exists
   // YES -> res.send({"success": true}) -> on CLIENT: redirect to community, save on cookie ("")
   const { email, password } = req.body;
   console.log(email, password);
@@ -364,8 +383,6 @@ app.post("/login", async (req, res) => {
     res.send({ success: false, error: "please try again" });
   }
 });
-
-// "user" - GET, POST, PUT, DELETE
 
 async function initRecipes() {
   await Recipe.deleteMany();
