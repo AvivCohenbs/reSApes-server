@@ -1,4 +1,6 @@
 import express from "express";
+import path from "path";
+import multer from "multer";
 import { readFile } from "fs/promises";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
@@ -49,6 +51,37 @@ const Recipe = mongoose.model("Recipe", {
 const app = express();
 
 app.use(express.json());
+
+app.use("/images", express.static("images"));
+
+const imageStorage = multer.diskStorage({
+  // Destination to store image
+  destination: "images/",
+  filename: (req, file, cb) => {
+    console.log("filename", file);
+    cb(
+      null,
+      file.fieldname + "_" + Date.now() + path.extname(file.originalname)
+    );
+    // file.fieldname is name of the field (image)
+    // path.extname get the uploaded file extension
+  },
+});
+
+const imageUpload = multer({
+  storage: imageStorage,
+  limits: {
+    fileSize: 100000000, // 1000000 Bytes = 1 MB
+  },
+  fileFilter(req, file, cb) {
+    console.log("file", file);
+    if (!file.originalname.match(/\.(png|jpg)$/)) {
+      // upload only png and jpg format
+      return cb(new Error("Please upload a Image"));
+    }
+    cb(undefined, true);
+  },
+});
 
 app.get("/recipes", async (req, res) => {
   const { term, allergies, ingredients, vegan, vegetarian } = req.query;
@@ -132,38 +165,6 @@ app.get("/recipes", async (req, res) => {
   }
 });
 
-app.get("/ingredients", async (req, res) => {
-  try {
-    res.send(await Ingredient.find());
-  } catch (e) {
-    throw e;
-  }
-});
-
-app.get("/units", async (req, res) => {
-  try {
-    res.send(await Unit.find());
-  } catch (e) {
-    throw e;
-  }
-});
-
-app.get("/users", async (req, res) => {
-  try {
-    res.send(await User.find());
-  } catch (e) {
-    throw e;
-  }
-});
-
-app.get("/comments", async (req, res) => {
-  try {
-    res.send(await Comment.find().populate("user"));
-  } catch (e) {
-    throw e;
-  }
-});
-
 app.get("/recipes/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -188,65 +189,47 @@ app.get("/recipes/:id", async (req, res) => {
   }
 });
 
-app.post("/recipes", async (req, res) => {
+app.post("/recipes", imageUpload.single("image"), async (req, res) => {
   const {
     title,
     time,
     difficulty,
     description,
-    image,
+    // image,
     instructions,
-    ingredients,
     vegan,
     vegetarian,
-    ingredientsQuantities,
-    comments,
+    ingredientsQuantities = [],
+    comments = [],
   } = req.body;
+
+  const ingredients = [];
+
+  const ingrQty = JSON.parse(ingredientsQuantities).map((ing) => {
+    ingredients.push(ing.Ingredient._id);
+    return {
+      ingredient: ing.Ingredient._id,
+      quantity: ing.Quantity,
+      unit: ing.Unit._id,
+    };
+  });
+
   const recipe = new Recipe({
     title,
     time,
     difficulty,
     description,
-    image,
+    image: req.file.filename,
     instructions,
     ingredients,
     vegan,
     vegetarian,
-    ingredientsQuantities,
+    ingredientsQuantities: ingrQty,
     comments,
   });
   await recipe.save();
-  console.log(recipe);
+
   res.send(recipe);
-});
-
-app.post("/ingredients", async (req, res) => {
-  const { name, allergie } = req.body;
-  const ingredient = new Ingredient({
-    name,
-    allergie,
-  });
-  await ingredient.save();
-  res.send(ingredient);
-});
-
-app.post("/units", async (req, res) => {
-  const { name } = req.body;
-  const unit = new Unit({
-    name,
-  });
-  await unit.save();
-  res.send(unit);
-});
-
-app.post("/users", async (req, res) => {
-  const { email, password } = req.body;
-  const user = new User({
-    email,
-    password,
-  });
-  await user.save();
-  res.send(user);
 });
 
 app.post("/recipes/:id/comment", async (req, res) => {
@@ -279,6 +262,24 @@ app.delete("/recipes/:id", async (req, res) => {
   }
 });
 
+app.get("/ingredients", async (req, res) => {
+  try {
+    res.send(await Ingredient.find());
+  } catch (e) {
+    throw e;
+  }
+});
+
+app.post("/ingredients", async (req, res) => {
+  const { name, allergie } = req.body;
+  const ingredient = new Ingredient({
+    name,
+    allergie,
+  });
+  await ingredient.save();
+  res.send(ingredient);
+});
+
 app.delete("/ingredients/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -287,6 +288,23 @@ app.delete("/ingredients/:id", async (req, res) => {
   } catch (e) {
     res.send({ msg: "Failed" });
   }
+});
+
+app.get("/units", async (req, res) => {
+  try {
+    res.send(await Unit.find());
+  } catch (e) {
+    throw e;
+  }
+});
+
+app.post("/units", async (req, res) => {
+  const { name } = req.body;
+  const unit = new Unit({
+    name,
+  });
+  await unit.save();
+  res.send(unit);
 });
 
 app.delete("/units/:id", async (req, res) => {
@@ -299,6 +317,24 @@ app.delete("/units/:id", async (req, res) => {
   }
 });
 
+app.get("/users", async (req, res) => {
+  try {
+    res.send(await User.find());
+  } catch (e) {
+    throw e;
+  }
+});
+
+app.post("/users", async (req, res) => {
+  const { email, password } = req.body;
+  const user = new User({
+    email,
+    password,
+  });
+  await user.save();
+  res.send(user);
+});
+
 app.delete("/users/:id", async (req, res) => {
   const { id } = req.params;
   try {
@@ -306,6 +342,14 @@ app.delete("/users/:id", async (req, res) => {
     res.send({ msg: "Success" });
   } catch (e) {
     res.send({ msg: "Failed" });
+  }
+});
+
+app.get("/comments", async (req, res) => {
+  try {
+    res.send(await Comment.find().populate("user"));
+  } catch (e) {
+    throw e;
   }
 });
 
@@ -383,6 +427,19 @@ app.post("/login", async (req, res) => {
     res.send({ success: false, error: "please try again" });
   }
 });
+
+// For Single image upload
+app.post(
+  "/uploadImage",
+  imageUpload.single("image"),
+  (req, res) => {
+    console.log("req.file", req.file);
+    res.send(req.file);
+  },
+  (error, req, res, next) => {
+    res.status(400).send({ error: error.message });
+  }
+);
 
 async function initRecipes() {
   await Recipe.deleteMany();
