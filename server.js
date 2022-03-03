@@ -83,9 +83,27 @@ const imageUpload = multer({
   },
 });
 
+const auth = async (req, res, next) => {
+  const { id } = req.headers;
+  if (!id) {
+    res.status(403).send();
+  } else {
+    try {
+      const user = await User.findById(id);
+      if (!user) {
+        res.status(403).send();
+      } else {
+        next();
+      }
+    } catch (err) {
+      res.status(403).send();
+    }
+  }
+};
+
 app.get("/recipes", async (req, res) => {
   const { term, allergies, ingredients, vegan, vegetarian } = req.query;
-
+  console.log(req.headers);
   let allergiesIds = new Set();
   let ingredientsIds = new Set();
   let allergiesPromises = [];
@@ -143,8 +161,6 @@ app.get("/recipes", async (req, res) => {
       .populate("ingredientsQuantities.unit")
       .populate("ingredientsQuantities.ingredient");
 
-    console.log("recipes", recipes);
-
     if (term) {
       recipes = recipes.filter((recipe) =>
         recipe.title.toLowerCase().includes(term.toLowerCase())
@@ -181,15 +197,13 @@ app.get("/recipes/:id", async (req, res) => {
         },
       });
 
-    console.log("recipe", recipe);
-
     res.send(recipe);
   } catch (e) {
     throw e;
   }
 });
 
-app.post("/recipes", imageUpload.single("image"), async (req, res) => {
+app.post("/recipes", auth, imageUpload.single("image"), async (req, res) => {
   const {
     title,
     time,
@@ -213,7 +227,7 @@ app.post("/recipes", imageUpload.single("image"), async (req, res) => {
       unit: ing.Unit._id,
     };
   });
-  console.log(instructions);
+
   const recipe = new Recipe({
     title,
     time,
@@ -232,7 +246,7 @@ app.post("/recipes", imageUpload.single("image"), async (req, res) => {
   res.send(recipe);
 });
 
-app.post("/recipes/:id/comment", async (req, res) => {
+app.post("/recipes/:id/comment", auth, async (req, res) => {
   const { user, content } = req.body;
 
   const { id } = req.params;
@@ -244,8 +258,6 @@ app.post("/recipes/:id/comment", async (req, res) => {
     { $addToSet: { comments: comment._id } },
     { new: true }
   );
-
-  console.log("recipe", recipe);
 
   await recipe.save();
 
@@ -418,9 +430,7 @@ app.get("/initRecipes", async (req, res) => {
 app.post("/login", async (req, res) => {
   // YES -> res.send({"success": true}) -> on CLIENT: redirect to community, save on cookie ("")
   const { email, password } = req.body;
-  console.log(email, password);
   const user = await User.findOne({ email, password });
-  console.log(user);
   if (user) {
     res.send({ success: true, user });
   } else {
