@@ -213,7 +213,7 @@ app.post("/recipes", imageUpload.single("image"), async (req, res) => {
       unit: ing.Unit._id,
     };
   });
-
+  console.log(instructions);
   const recipe = new Recipe({
     title,
     time,
@@ -428,7 +428,6 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// For Single image upload
 app.post(
   "/uploadImage",
   imageUpload.single("image"),
